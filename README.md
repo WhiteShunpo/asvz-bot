@@ -59,13 +59,13 @@ python3 asvz_bot.py -h
 Enroll by lesson ID and save credentials (locally in `.asvz-bot.json`)
 
 ```bash
-python3 asvz_bot.py --organisation "ETH" --username "flbuetle" --save-credentials lesson 196346
+python3 asvz_bot.py --organisation "ETH" --username "jeiholzer" --save-credentials lesson 618253
 ```
 
 Enroll by lesson ID and use saved credentials
 
 ```bash
-python3 asvz_bot.py lesson 196346
+python3 asvz_bot.py lesson 618253
 ```
 
 Enroll by lesson attributes and use saved credentials

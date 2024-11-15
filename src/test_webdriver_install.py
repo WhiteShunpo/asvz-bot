@@ -1,14 +1,40 @@
 import os
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.download_manager import WDMDownloadManager
 
-from asvz_bot import CustomHttpClient
+class CustomHttpClient:
+    def __init__(self, proxy=None, username=None, password=None):
+        self.proxy = proxy
+        self.username = username
+        self.password = password
+
+    def get(self, url):
+        session = requests.Session()
+        retries = Retry(total=3, backoff_factor=1, status_forcelist=[502, 503, 504])
+        session.mount('http://', HTTPAdapter(max_retries=retries))
+        session.mount('https://', HTTPAdapter(max_retries=retries))
+
+        if self.proxy:
+            proxy_auth = f"{self.username}:{self.password}@" if self.username and self.password else ""
+            proxies = {
+                "http": f"http://{proxy_auth}{self.proxy}",
+                "https": f"http://{proxy_auth}{self.proxy}",
+            }
+        else:
+            proxies = None
+
+        response = session.get(url, proxies=proxies, allow_redirects=False)  # Test without redirects
+        response.raise_for_status()
+        return response
 
 
 def test_custom_http_client():
-    proxy_url = "proxy.ethz.ch:3128"
+    proxy_url = "http://proxy.ethz.ch:3128"
     custom_client = CustomHttpClient(proxy=proxy_url)
     response = custom_client.get("https://google.com")
     print(response)
