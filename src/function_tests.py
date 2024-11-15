@@ -7,7 +7,6 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.download_manager import WDMDownloadManager
 
-
 class CustomHttpClient:
     def __init__(self, proxy=None, username=None, password=None):
         self.proxy = proxy
@@ -35,7 +34,7 @@ class CustomHttpClient:
 
 
 def test_custom_http_client():
-    proxy_url = "http://proxy.ethz.ch:3128"
+    proxy_url = "http://129.132.202.155:3128"  # Use the resolved IP address
     custom_client = CustomHttpClient(proxy=proxy_url)
     response = custom_client.get("https://google.com")
     print(response)
@@ -43,25 +42,24 @@ def test_custom_http_client():
 
 
 def test_can_get_chrome_driver_with_custom_http_client():
-    http_client = CustomHttpClient(proxy="proxy.ethz.ch:3128")
+    proxy_url = "http://129.132.202.155:3128"  # Use the resolved IP address
+    http_client = CustomHttpClient(proxy=proxy_url)
     download_manager = WDMDownloadManager(http_client)
     path = ChromeDriverManager(download_manager=download_manager).install()
     assert os.path.exists(path)
 
 
 def test_selenium_driver():
-    # Create a WebDriver instance
-    http_client = CustomHttpClient(proxy="proxy.ethz.ch:3128")
+    proxy_url = "http://129.132.202.155:3128"  # Use the resolved IP address
+    http_client = CustomHttpClient(proxy=proxy_url)
     download_manager = WDMDownloadManager(http_client)
-    # Configure ChromeOptions as needed, e.g., set proxy options
-    # Create a WebDriver instance with ChromeOptions
     options = webdriver.ChromeOptions()
-    options.add_argument("--proxy-server=http://proxy.ethz.ch:3128")
+    options.add_argument(f'--proxy-server={proxy_url}')
     path = ChromeDriverManager(download_manager=download_manager).install()
     driver = webdriver.Chrome(options=options)
 
     # Navigate to the Google homepage
-    driver.get("https://www.asvz.ch/")
+    driver.get("https://www.google.com")
 
     # Wait for a few seconds to see the search results
     driver.implicitly_wait(5)
@@ -72,7 +70,5 @@ def test_selenium_driver():
 
 if __name__ == "__main__":
     test_custom_http_client()
-    print("done")
     test_can_get_chrome_driver_with_custom_http_client()
-    print("done")
     test_selenium_driver()
