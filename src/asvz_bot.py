@@ -311,7 +311,7 @@ class AsvzEnroller:
     def get_driver(chromedriver_path, proxy_url=None):
         options = Options()
         options.add_argument("--private")
-        options.add_argument("--headless")
+        #options.add_argument("--headless")
         options.add_argument(
             "--no-sandbox"
         )  # Required for running as root user in Docker container
@@ -364,9 +364,18 @@ class AsvzEnroller:
                 self.lesson_url,
             )
         )
+        
+    def __is_logged_in(self, driver):
+        try:
+            driver.find_element(By.XPATH, "/html/body/app-root/div/div[1]/app-navigation-bar/nav/div/div/div/ul/li/a/i[1]")
+            return True
+        except NoSuchElementException:
+            logging.error("Login check failed. Current URL: %s", driver.current_url)
+            return False
 
     def enroll(self):
         logging.info("Checking login credentials")
+        driver = None
         try:
             driver = AsvzEnroller.get_driver(self.chromedriver, self.proxy_url)
             driver.get(self.lesson_url)
@@ -379,18 +388,11 @@ class AsvzEnroller:
         except NoSuchElementException as e:
             logging.error(NO_SUCH_ELEMENT_ERR_MSG)
             raise e
-        finally:
-            if driver is not None:
-                driver.quit()
 
         if datetime.today() < self.enrollment_start:
             AsvzEnroller.wait_until(self.enrollment_start)
 
         try:
-            driver = AsvzEnroller.get_driver(self.chromedriver, self.proxy_url)
-            driver.get(self.lesson_url)
-            driver.implicitly_wait(3)
-
             logging.info("Starting enrollment")
 
             enrolled = False
@@ -403,19 +405,19 @@ class AsvzEnroller:
 
                 logging.info("Lesson has free places")
 
-                self.__organisation_login(driver)
+                # Check if already logged in
+                if not self.__is_logged_in(driver):
+                    logging.error("Not logged in after initial login")
+                    raise AsvzBotException("Not logged in after initial login")
 
                 try:
                     logging.info("Waiting for enrollment")
                     WebDriverWait(driver, 5 * 60).until(
-                        EC.element_to_be_clickable(
-                            (
-                                By.XPATH,
-                                "//button[@id='btnRegister' and (@class='btn-primary btn enrollmentPlacePadding' or @class='btn btn-default')]",
-                            )
-                        )
-                    ).click()
-
+                       lambda d: d.find_element(By.ID, "btnRegister").get_attribute("class") == "btn btn-primary"
+                    )
+                    button = driver.find_element(By.ID, "btnRegister")
+                    driver.execute_script("arguments[0].click();", button)  # Using JavaScript to click the button
+                    logging.info("Clicked the enrollment button using JavaScript.")
                     time.sleep(5)
                 except TimeoutException as e:
                     logging.info(
@@ -423,37 +425,40 @@ class AsvzEnroller:
                     )
                     continue
 
+
+
                 logging.info("Submitted enrollment request.")
                 enrolled = True
 
                 try:
-                    enrollment_el = driver.find_element(
-                        By.TAG_NAME, "app-lessons-enrollment-button"
-                    )
-
-                    alert_el = enrollment_el.find_element(
-                        By.XPATH, "//div[contains(@class, 'alert')]"
-                    )
-                    alert_text = alert_el.get_attribute("innerHTML")
-
-                    if "Du hast dich erfolgreich eingeschrieben" in alert_text:
-                        logging.info("Successfully enrolled. Train hard and have fun!")
-                    else:
-                        logging.warning(
-                            "Enrollment might have not been successful. Please check your E-Mail."
+                    logging.info("Checking for enrollment result")
+                    try:
+                        # Wait for the element to be present
+                        enrollment_el = WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'alert')]"))
                         )
+                        alert_text = enrollment_el.get_attribute("innerHTML")
 
-                    participation_el = enrollment_el.find_element(By.TAG_NAME, "span")
-                    participation_text = participation_el.get_attribute("innerHTML")
+                        if "Du hast dich erfolgreich eingeschrieben" in alert_text:
+                            logging.info("Successfully enrolled. Train hard and have fun!")
+                        else:
+                            logging.warning("Enrollment might have not been successful. Please check your E-Mail.")
 
-                    m = LESSON_ENROLLMENT_NUMBER_REGEX.match(participation_text)
-                    if m:
-                        enrollment_number = m.group(1)
-                        logging.info(f"Your enrollment number is {enrollment_number}")
-                    else:
-                        logging.warning(
-                            "Enrollment might have not been successful. Please check your E-Mail."
-                        )
+                        enrollment_number_text = WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.XPATH, "//span[@style='white-space: nowrap;']"))
+                        ).text
+                        enrollment_number = enrollment_number_text.split()[-1]
+
+                        if enrollment_number_text:
+                            logging.info(f"Your enrollment number is {enrollment_number}")
+                        else:
+                            logging.warning("Enrollment might have not been successful. Please check your E-Mail.")
+                    except TimeoutException:
+                        logging.error("Failed to get enrollment result! Element not found within the given time.")
+                    except NoSuchElementException as e:
+                        logging.error("Failed to get enrollment result!")
+                        raise e
+
                 except NoSuchElementException as e:
                     logging.error("Failed to get enrollment result!")
                     raise e
@@ -677,7 +682,7 @@ class AsvzEnroller:
                     "Stopping enrollment because lesson has started."
                 )
 
-            retry_interval_sec = 1 * 30
+            retry_interval_sec = 3 
             logging.info(
                 "Lesson is booked out. Rechecking in {} secs..".format(
                     retry_interval_sec
@@ -865,7 +870,7 @@ def main():
         logging.error(e)
         exit(1)
 
-    chromedriver_path = get_chromedriver_path(args.proxy)
+    chromedriver_path = r"C:\Users\jerom\Downloads\chromedriver-win64\chromedriver-win64\chromedriver.exe"
 
     enroller = None
     if args.type == "lesson":

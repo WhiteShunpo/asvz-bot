@@ -6,7 +6,11 @@ from urllib3.util.retry import Retry
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.download_manager import WDMDownloadManager
-
+"""Starting ChromeDriver 131.0.6778.69 (77e2244bbcda3ab9362d5b8aeeb006a86a6d4832-refs/branch-heads/6778@{#2141}) on port 0
+Only local connections are allowed.
+Please see https://chromedriver.chromium.org/security-considerations for suggestions on keeping ChromeDriver safe.
+ChromeDriver was started successfully on port 61044.
+"""
 
 class CustomHttpClient:
     def __init__(self, proxy=None, username=None, password=None):
